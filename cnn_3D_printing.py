@@ -20,27 +20,27 @@ def cnn_model_fn(features, labels, mode):
         inputs=input_layer,
         filters=32,
         kernel_size=[5, 5],
-        strides=3,
-        padding='valid',
+        strides=2,
+        padding='same',
         activation=tf.nn.relu
     )
 
     # Pooling layer #1
-    pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[3, 3], strides=3)
+    pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
 
     # Convolutional layer #2 and pooling layer #2
     conv2 = tf.layers.conv2d(
         inputs=pool1,
         filters=64,
-        strides=3,
+        strides=2,
         kernel_size=[5, 5],
         padding='same',
         activation=tf.nn.relu
     )
-    pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[3, 3], strides=3)
+    pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
 
     # Dense layer
-    pool2_flat = tf.reshape(pool2, [-1, 1 * 1 * 64])
+    pool2_flat = tf.reshape(pool2, [-1, 8 * 8 * 64])
     dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
     dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=mode == tf.estimator.ModeKeys.TRAIN)
 
@@ -88,7 +88,7 @@ def main(unused_argv):
 
     # Create the estimator
     mnist_classifier = tf.estimator.Estimator(
-        model_fn=cnn_model_fn, model_dir="./"
+        model_fn=cnn_model_fn, model_dir="./model/"
     )
 
     # Set up logging for predictions
@@ -119,6 +119,7 @@ def main(unused_argv):
     )
     eval_results = mnist_classifier.evaluate(input_fn=eval_input_fn)
     print(eval_results)
+
 
 if __name__ == "__main__":
     tf.app.run()
