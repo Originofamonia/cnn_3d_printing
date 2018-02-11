@@ -10,7 +10,6 @@ import tensorflow as tf
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-
 # our application logic will be added here
 def cnn_model_fn(features, labels, mode):
     """Model function for CNN."""
