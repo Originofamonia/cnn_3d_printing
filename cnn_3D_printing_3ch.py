@@ -94,31 +94,31 @@ def read_tfrecords(filename, is_train):
 def cnn_model_fn(features, labels, mode):
     """Model function for CNN."""
     # Input layer
-    input_layer = tf.reshape(features["x"], [-1, 128, 128, 3])
+    input_layer = tf.reshape(features["x"], [-1, 3, 128, 128, 3])
 
     # Convolutional layer #1
     conv1 = tf.layers.conv3d(
         inputs=input_layer,
         filters=32,
-        kernel_size=[5, 5, 3],
-        strides=(2, 2, 1),
+        kernel_size=[3, 5, 5],
+        strides=(2, 2, 2),
         padding='valid',
         activation=tf.nn.relu
     )
 
     # Pooling layer #1
-    pool1 = tf.layers.max_pooling3d(inputs=conv1, pool_size=[2, 2, 3], strides=(2, 2, 1))
+    pool1 = tf.layers.max_pooling3d(inputs=conv1, pool_size=[3, 2, 2], strides=(2, 2, 2))
 
     # Convolutional layer #2 and pooling layer #2
     conv2 = tf.layers.conv3d(
         inputs=pool1,
         filters=64,
-        strides=(2, 2, 1),
-        kernel_size=[5, 5, 3],
+        strides=(2, 2, 2),
+        kernel_size=[3, 5, 5],
         padding='same',
         activation=tf.nn.relu
     )
-    pool2 = tf.layers.max_pooling3d(inputs=conv2, pool_size=[2, 2, 3], strides=(2, 2, 1))
+    pool2 = tf.layers.max_pooling3d(inputs=conv2, pool_size=[3, 2, 2], strides=(2, 2, 2))
 
     # Dense layer
     pool2_flat = tf.reshape(pool2, [-1, 8 * 8 * 64])
@@ -178,7 +178,7 @@ def main(unused_argv):
     train_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={"x": train_data},
         y=train_labels,
-        batch_size=100,
+        batch_size=3,  # was 100
         num_epochs=None,
         shuffle=True
     )
