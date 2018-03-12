@@ -97,28 +97,28 @@ def cnn_model_fn(features, labels, mode):
     input_layer = tf.reshape(features["x"], [-1, 128, 128, 3])
 
     # Convolutional layer #1
-    conv1 = tf.layers.conv2d(
+    conv1 = tf.layers.conv3d(
         inputs=input_layer,
         filters=32,
-        kernel_size=[5, 5],
-        strides=2,
+        kernel_size=[5, 5, 3],
+        strides=(2, 2, 1),
         padding='valid',
         activation=tf.nn.relu
     )
 
     # Pooling layer #1
-    pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
+    pool1 = tf.layers.max_pooling3d(inputs=conv1, pool_size=[2, 2, 3], strides=(2, 2, 1))
 
     # Convolutional layer #2 and pooling layer #2
-    conv2 = tf.layers.conv2d(
+    conv2 = tf.layers.conv3d(
         inputs=pool1,
         filters=64,
-        strides=2,
-        kernel_size=[5, 5],
+        strides=(2, 2, 1),
+        kernel_size=[5, 5, 3],
         padding='same',
         activation=tf.nn.relu
     )
-    pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
+    pool2 = tf.layers.max_pooling3d(inputs=conv2, pool_size=[2, 2, 3], strides=(2, 2, 1))
 
     # Dense layer
     pool2_flat = tf.reshape(pool2, [-1, 8 * 8 * 64])
