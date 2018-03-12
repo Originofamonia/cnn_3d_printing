@@ -10,6 +10,9 @@ import tensorflow as tf
 tf.logging.set_verbosity(tf.logging.INFO)
 
 IMAGE_SIZE = 128
+learning_rate = 1e-3
+batch_size = 300
+steps = 1e3
 
 
 # image object from protobuf
@@ -54,9 +57,9 @@ def read_and_decode(filename_queue, is_train):
                 break
             imgs.append(img)
             lbls.append(label)
-            if is_train is True and len(imgs) == 51840:
+            if is_train is True and len(imgs) == 51840:  # should be 51840
                 break
-            elif is_train is False and len(lbls) == 6372:  # should be 9372
+            elif is_train is False and len(lbls) == 6372:  # should be 9372, but at 13700000 some place the file was corrupted, so use 6372
                 break
 
         coord.request_stop()
@@ -107,7 +110,7 @@ def cnn_model_fn(features, labels, mode):
     )
 
     # Pooling layer #1
-    pool1 = tf.layers.max_pooling3d(inputs=conv1, pool_size=[3, 2, 2], strides=(2, 2, 2))
+    pool1 = tf.layers.max_pooling3d(inputs=conv1, pool_size=[1, 2, 2], strides=(2, 2, 2))
 
     # Convolutional layer #2 and pooling layer #2
     conv2 = tf.layers.conv3d(
@@ -118,7 +121,7 @@ def cnn_model_fn(features, labels, mode):
         padding='same',
         activation=tf.nn.relu
     )
-    pool2 = tf.layers.max_pooling3d(inputs=conv2, pool_size=[3, 2, 2], strides=(2, 2, 2))
+    pool2 = tf.layers.max_pooling3d(inputs=conv2, pool_size=[1, 2, 2], strides=(2, 2, 2))
 
     # Dense layer
     pool2_flat = tf.reshape(pool2, [-1, 8 * 8 * 64])
@@ -139,12 +142,15 @@ def cnn_model_fn(features, labels, mode):
         return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
     # Calculate loss (for both TRAIN and EVAL mode)
-    onehot_labels = tf.one_hot(indices=tf.cast(labels, tf.int32), depth=10)
+    # indices = [tf.cast(labels, tf.int32), tf.cast(labels, tf.int32), tf.cast(labels, tf.int32)]
+    labels = tf.slice(labels, begin=[0, ], size=[1, ])
+    onehot_labels = tf.one_hot(indices=labels, depth=10)
+    logits = tf.slice(logits, begin=[0, 0], size=[1, 10])
     loss = tf.losses.softmax_cross_entropy(onehot_labels=onehot_labels, logits=logits)
 
     # Configure the Training Op (for TRAIN mode)
     if mode == tf.estimator.ModeKeys.TRAIN:
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=1e-3)
+        optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
         train_op = optimizer.minimize(
             loss=loss,
             global_step=tf.train.get_global_step()
@@ -178,13 +184,13 @@ def main(unused_argv):
     train_input_fn = tf.estimator.inputs.numpy_input_fn(
         x={"x": train_data},
         y=train_labels,
-        batch_size=3,  # was 100
+        batch_size=batch_size,  # was 100
         num_epochs=None,
         shuffle=True
     )
     mnist_classifier.train(
         input_fn=train_input_fn,
-        steps=10000,
+        steps=steps,
         hooks=[logging_hook]
     )
 
