@@ -42,24 +42,24 @@ def read_and_decode(filename_queue):
     image_object.filename = features["image/filename"]
     image_object.label = tf.cast(features["image/class/label"], tf.int64)
 
-    with tf.Session() as sess:
-        # 启动多线程
-        sess.run(tf.local_variables_initializer())
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-        while not coord.should_stop():
-            try:
-                img, label = sess.run([image_object.image, image_object.label])
-            except tf.errors.OutOfRangeError:
-                print("Turn to next folder.")
-                break
-            imgs.append(img)
-            lbls.append(label)
-
-        coord.request_stop()
-        coord.join(threads)
-    return imgs, lbls
-
+    # with tf.Session() as sess:
+    #     # 启动多线程
+    #     sess.run(tf.local_variables_initializer())
+    #     coord = tf.train.Coordinator()
+    #     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+    #     while not coord.should_stop():
+    #         try:
+    #             img, label = sess.run([image_object.image, image_object.label])
+    #         except tf.errors.OutOfRangeError:
+    #             print("Turn to next folder.")
+    #             break
+    #         imgs.append(img)
+    #         lbls.append(label)
+    #
+    #     coord.request_stop()
+    #     coord.join(threads)
+    # return imgs, lbls
+    return image_object
 
 def read_data():
     # Load training and eval data
@@ -73,9 +73,13 @@ def read_data():
 
 def read_tfrecords(filename):
     filename_queue = tf.train.string_input_producer([filename])
-    imgs, lbls = read_and_decode(filename_queue)
+    image_object = read_and_decode(filename_queue)
+    img = tf.image.per_image_standardization(image_object.image)
+    lbl = image_object.label
+    with tf.Session() as sess:
+        image, label = sess.run([img, lbl])
 
-    return np.array(imgs), np.array(lbls)
+    return np.array(image), np.array(label)
 
 
 def cnn_model_fn(features, labels, mode):
