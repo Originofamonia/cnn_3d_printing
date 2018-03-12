@@ -22,44 +22,48 @@ class ImageObject:
         self.label = tf.Variable([], dtype=tf.int64)
 
 
-def read_and_decode(filename_queue):
+def read_and_decode(filename_queue, is_train):
     imgs = []
     lbls = []
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
     features = tf.parse_single_example(serialized_example, features={
         "image/encoded": tf.FixedLenFeature([], tf.string),
-        "image/height": tf.FixedLenFeature([], tf.int64),
-        "image/width": tf.FixedLenFeature([], tf.int64),
-        "image/filename": tf.FixedLenFeature([], tf.string),
+        # "image/height": tf.FixedLenFeature([], tf.int64),
+        # "image/width": tf.FixedLenFeature([], tf.int64),
+        # "image/filename": tf.FixedLenFeature([], tf.string),
         "image/class/label": tf.FixedLenFeature([], tf.int64)})
     image_encoded = features["image/encoded"]
     image_raw = tf.image.decode_jpeg(image_encoded, channels=3)
     image_object = ImageObject()
     image_object.image = tf.image.resize_image_with_crop_or_pad(image_raw, IMAGE_SIZE, IMAGE_SIZE)
-    image_object.height = features["image/height"]
-    image_object.width = features["image/width"]
-    image_object.filename = features["image/filename"]
+    # image_object.height = features["image/height"]
+    # image_object.width = features["image/width"]
+    # image_object.filename = features["image/filename"]
     image_object.label = tf.cast(features["image/class/label"], tf.int64)
 
-    # with tf.Session() as sess:
-    #     # 启动多线程
-    #     sess.run(tf.local_variables_initializer())
-    #     coord = tf.train.Coordinator()
-    #     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-    #     while not coord.should_stop():
-    #         try:
-    #             img, label = sess.run([image_object.image, image_object.label])
-    #         except tf.errors.OutOfRangeError:
-    #             print("Turn to next folder.")
-    #             break
-    #         imgs.append(img)
-    #         lbls.append(label)
-    #
-    #     coord.request_stop()
-    #     coord.join(threads)
-    # return imgs, lbls
-    return image_object
+    with tf.Session() as sess:
+        sess.run(tf.local_variables_initializer())
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+        while not coord.should_stop():
+            try:
+                img, label = sess.run([image_object.image, image_object.label])
+            except tf.errors.OutOfRangeError:
+                print("Turn to next folder.")
+                break
+            imgs.append(img)
+            lbls.append(label)
+            if is_train is True and len(imgs) == 51840:
+                break
+            elif is_train is False and len(lbls) == 6372:  # should be 9372
+                break
+
+        coord.request_stop()
+        coord.join(threads)
+    return imgs, lbls
+    # return image_object
+
 
 def read_data():
     # Load training and eval data
@@ -71,15 +75,20 @@ def read_data():
     return train_data, train_labels, eval_data, eval_labels
 
 
-def read_tfrecords(filename):
+def read_tfrecords(filename, is_train):
     filename_queue = tf.train.string_input_producer([filename])
-    image_object = read_and_decode(filename_queue)
-    img = tf.image.per_image_standardization(image_object.image)
-    lbl = image_object.label
-    with tf.Session() as sess:
-        image, label = sess.run([img, lbl])
+    image, label = read_and_decode(filename_queue, is_train)
+    # img = tf.image.per_image_standardization(image_object.image)
+    # lbl = image_object.label
+    # with tf.Session() as sess:
+    #     sess.run(tf.local_variables_initializer())
+    #     try:
+    #         image, label = sess.run([img, lbl])
+    #     except tf.errors.OutOfRangeError:
+    #         print("Turn to next folder.")
+    #     print(type(image), type(label))
 
-    return np.array(image), np.array(label)
+    return np.array(image, dtype=np.float32), np.array(label)
 
 
 def cnn_model_fn(features, labels, mode):
@@ -153,8 +162,8 @@ def cnn_model_fn(features, labels, mode):
 def main(unused_argv):
     train_tfrecord = './dataset-128/train-00000-of-00001.tfrecord'
     eval_tfrecord = './dataset-128/validation-00000-of-00001.tfrecord'
-    train_data, train_labels = read_tfrecords(train_tfrecord)
-    eval_data, eval_labels = read_tfrecords(eval_tfrecord)
+    train_data, train_labels = read_tfrecords(train_tfrecord, is_train=True)
+    eval_data, eval_labels = read_tfrecords(eval_tfrecord, is_train=False)
     # Create the estimator
     mnist_classifier = tf.estimator.Estimator(
         model_fn=cnn_model_fn, model_dir="./model-3ch/"
