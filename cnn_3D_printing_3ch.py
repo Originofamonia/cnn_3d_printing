@@ -108,7 +108,7 @@ def cnn_model_fn(features, labels, mode):
     pool2 = tf.layers.max_pooling3d(inputs=conv2, pool_size=[1, 2, 2], strides=(2, 2, 2))
 
     # Dense layer
-    pool2_flat = tf.reshape(pool2, [-1, 8 * 8 * 64 * 1])
+    pool2_flat = tf.reshape(pool2, [-1, 8 * 8 * 64 * 100])
     dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
     dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=mode == tf.estimator.ModeKeys.TRAIN)
 

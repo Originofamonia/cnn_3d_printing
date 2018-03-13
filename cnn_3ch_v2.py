@@ -11,7 +11,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 IMAGE_SIZE = 128
 learning_rate = 1e-3
-batch_size = 100  # should make logits be of shape (1, 10), modify pool2_flat reshape
+batch_size = 100
 steps = 1e4
 
 
@@ -53,7 +53,7 @@ def read_and_decode(filename_queue, is_train):
             lbls.append(label)
             if is_train is True and len(imgs) == 51840:  # should be 51840
                 break
-            elif is_train is False and len(lbls) == 6372:  # should be 9372, but at 13700000 some place the file was corrupted, so use 6372
+            elif is_train is False and len(lbls) == 6372:  # should be 9372, but at 1370000 sth the file was corrupted, so use 6372
                 break
 
         coord.request_stop()
@@ -76,6 +76,38 @@ def read_tfrecords(filename, is_train):
     image, label = read_and_decode(filename_queue, is_train)
 
     return np.asarray(image, dtype=np.float32), np.asarray(label, dtype=np.int32)
+
+
+def read_tfrecords_v2(filename, num_of_images):
+    imgs = []
+    lbls = []
+    filename_queue = tf.train.string_input_producer([filename])  # 读入流中
+    reader = tf.TFRecordReader()
+    _, serialized_example = reader.read(filename_queue)  # 返回文件名和文件
+    features = tf.parse_single_example(
+        serialized_example,
+        features={
+            'label': tf.FixedLenFeature([], tf.int64),
+            'img_raw': tf.FixedLenFeature([], tf.string)
+        }
+    )  # 将image数据和label取出来
+
+    image = tf.decode_raw(features['img_raw'], tf.uint8)
+    image = tf.reshape(image, [-1])  #
+    label = tf.cast(features['label'], tf.int32)  # 在流中抛出label张量
+    with tf.Session() as sess:  # 开始一个会话
+        init_op = tf.global_variables_initializer()
+        sess.run(init_op)
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(coord=coord)
+        for i in range(num_of_images):
+            example, lbl = sess.run([image, label])  # 在会话中取出image和label
+            imgs.append(example)
+            lbls.append(lbl)
+        coord.request_stop()
+        coord.join(threads)
+
+    return np.asarray(imgs, dtype=np.float32), np.asarray(lbls, dtype=np.int32)
 
 
 def cnn_model_fn(features, labels, mode):
@@ -126,8 +158,6 @@ def cnn_model_fn(features, labels, mode):
         return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
     # Calculate loss (for both TRAIN and EVAL mode)
-    # indices = [tf.cast(labels, tf.int32), tf.cast(labels, tf.int32), tf.cast(labels, tf.int32)]
-    # labels = tf.slice(labels, begin=[0, ], size=[1, ])
     onehot_labels = tf.one_hot(indices=labels, depth=10)
     loss = tf.losses.softmax_cross_entropy(onehot_labels=onehot_labels, logits=logits)
 
@@ -149,10 +179,10 @@ def cnn_model_fn(features, labels, mode):
 
 
 def main(unused_argv):
-    train_tfrecord = './data/train-00000-of-00001.tfrecord'
-    eval_tfrecord = './data/validation-00000-of-00001.tfrecord'
-    train_data, train_labels = read_tfrecords(train_tfrecord, is_train=True)
-    eval_data, eval_labels = read_tfrecords(eval_tfrecord, is_train=False)
+    train_tfrecord = './dataset-128/train_3ch.tfrecords'
+    eval_tfrecord = './dataset-128/eval_3ch.tfrecords'
+    train_data, train_labels = read_tfrecords_v2(train_tfrecord, num_of_images=51840)
+    eval_data, eval_labels = read_tfrecords_v2(eval_tfrecord, num_of_images=9310)
     # Create the estimator
     cnn_classifier = tf.estimator.Estimator(
         model_fn=cnn_model_fn, model_dir="./model-3ch/"
