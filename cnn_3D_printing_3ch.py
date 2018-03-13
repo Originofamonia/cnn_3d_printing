@@ -11,7 +11,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 IMAGE_SIZE = 128
 learning_rate = 1e-3
-batch_size = 300  # should make logits be of shape (1, 10)
+batch_size = 100  # should make logits be of shape (1, 10), modify pool2_flat reshape
 steps = 1e3
 
 
@@ -81,13 +81,13 @@ def read_tfrecords(filename, is_train):
 def cnn_model_fn(features, labels, mode):
     """Model function for CNN."""
     # Input layer
-    input_layer = tf.reshape(features["x"], [-1, 3, 128, 128, 3])
+    input_layer = tf.reshape(features["x"], [-1, 1, 128, 128, 3])
 
     # Convolutional layer #1
     conv1 = tf.layers.conv3d(
         inputs=input_layer,
         filters=32,
-        kernel_size=[3, 5, 5],
+        kernel_size=[1, 5, 5],
         strides=(2, 2, 2),
         padding='valid',
         activation=tf.nn.relu
@@ -101,14 +101,14 @@ def cnn_model_fn(features, labels, mode):
         inputs=pool1,
         filters=64,
         strides=(2, 2, 2),
-        kernel_size=[3, 5, 5],
+        kernel_size=[1, 5, 5],
         padding='same',
         activation=tf.nn.relu
     )
     pool2 = tf.layers.max_pooling3d(inputs=conv2, pool_size=[1, 2, 2], strides=(2, 2, 2))
 
     # Dense layer
-    pool2_flat = tf.reshape(pool2, [-1, 8 * 8 * 64 * 100])
+    pool2_flat = tf.reshape(pool2, [-1, 8 * 8 * 64 * 1])
     dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
     dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=mode == tf.estimator.ModeKeys.TRAIN)
 
