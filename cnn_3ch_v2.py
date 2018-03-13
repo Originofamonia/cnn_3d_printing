@@ -93,21 +93,21 @@ def read_tfrecords_v2(filename, num_of_images):
     )  # 将image数据和label取出来
 
     image = tf.decode_raw(features['img_raw'], tf.uint8)
-    image = tf.reshape(image, [-1])  #
-    label = tf.cast(features['label'], tf.int32)  # 在流中抛出label张量
-    with tf.Session() as sess:  # 开始一个会话
+    image = tf.reshape(image, [-1])
+    label = tf.cast(features['label'], tf.int32)
+    with tf.Session() as sess:
         init_op = tf.global_variables_initializer()
         sess.run(init_op)
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(coord=coord)
         for i in range(num_of_images):
-            example, lbl = sess.run([image, label])  # 在会话中取出image和label
+            example, lbl = sess.run([image, label])
             imgs.append(example)
             lbls.append(lbl)
         coord.request_stop()
         coord.join(threads)
 
-    return np.asarray(imgs, dtype=np.float32), np.asarray(lbls, dtype=np.int32)
+    return np.float32(imgs), np.int32(lbls)
 
 
 def cnn_model_fn(features, labels, mode):
@@ -181,8 +181,9 @@ def cnn_model_fn(features, labels, mode):
 def main(unused_argv):
     train_tfrecord = './dataset-128/train_3ch.tfrecords'
     eval_tfrecord = './dataset-128/eval_3ch.tfrecords'
-    train_data, train_labels = read_tfrecords_v2(train_tfrecord, num_of_images=51840)
-    eval_data, eval_labels = read_tfrecords_v2(eval_tfrecord, num_of_images=9310)
+    eval_data, eval_labels = read_tfrecords_v2(eval_tfrecord, num_of_images=3000)  # should be 3000
+    train_data, train_labels = read_tfrecords_v2(train_tfrecord, num_of_images=17280)  # should be 17280
+
     # Create the estimator
     cnn_classifier = tf.estimator.Estimator(
         model_fn=cnn_model_fn, model_dir="./model-3ch/"
