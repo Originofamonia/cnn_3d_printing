@@ -11,7 +11,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 IMAGE_SIZE = 128
 learning_rate = 1e-3
-batch_size = 300
+batch_size = 300  # should make logits be of shape (1, 10)
 steps = 1e3
 
 
@@ -32,17 +32,11 @@ def read_and_decode(filename_queue, is_train):
     _, serialized_example = reader.read(filename_queue)
     features = tf.parse_single_example(serialized_example, features={
         "image/encoded": tf.FixedLenFeature([], tf.string),
-        # "image/height": tf.FixedLenFeature([], tf.int64),
-        # "image/width": tf.FixedLenFeature([], tf.int64),
-        # "image/filename": tf.FixedLenFeature([], tf.string),
         "image/class/label": tf.FixedLenFeature([], tf.int64)})
     image_encoded = features["image/encoded"]
     image_raw = tf.image.decode_jpeg(image_encoded, channels=3)
     image_object = ImageObject()
     image_object.image = tf.image.resize_image_with_crop_or_pad(image_raw, IMAGE_SIZE, IMAGE_SIZE)
-    # image_object.height = features["image/height"]
-    # image_object.width = features["image/width"]
-    # image_object.filename = features["image/filename"]
     image_object.label = tf.cast(features["image/class/label"], tf.int64)
 
     with tf.Session() as sess:
@@ -57,15 +51,14 @@ def read_and_decode(filename_queue, is_train):
                 break
             imgs.append(img)
             lbls.append(label)
-            if is_train is True and len(imgs) == 51840:  # should be 51840
+            if is_train is True and len(imgs) == 518:  # should be 51840
                 break
-            elif is_train is False and len(lbls) == 6372:  # should be 9372, but at 13700000 some place the file was corrupted, so use 6372
+            elif is_train is False and len(lbls) == 63:  # should be 9372, but at 13700000 some place the file was corrupted, so use 6372
                 break
 
         coord.request_stop()
         coord.join(threads)
     return imgs, lbls
-    # return image_object
 
 
 def read_data():
@@ -81,15 +74,6 @@ def read_data():
 def read_tfrecords(filename, is_train):
     filename_queue = tf.train.string_input_producer([filename])
     image, label = read_and_decode(filename_queue, is_train)
-    # img = tf.image.per_image_standardization(image_object.image)
-    # lbl = image_object.label
-    # with tf.Session() as sess:
-    #     sess.run(tf.local_variables_initializer())
-    #     try:
-    #         image, label = sess.run([img, lbl])
-    #     except tf.errors.OutOfRangeError:
-    #         print("Turn to next folder.")
-    #     print(type(image), type(label))
 
     return np.array(image, dtype=np.float32), np.array(label)
 
@@ -124,7 +108,7 @@ def cnn_model_fn(features, labels, mode):
     pool2 = tf.layers.max_pooling3d(inputs=conv2, pool_size=[1, 2, 2], strides=(2, 2, 2))
 
     # Dense layer
-    pool2_flat = tf.reshape(pool2, [-1, 8 * 8 * 64])
+    pool2_flat = tf.reshape(pool2, [-1, 8 * 8 * 64 * 100])
     dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
     dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=mode == tf.estimator.ModeKeys.TRAIN)
 
@@ -145,7 +129,6 @@ def cnn_model_fn(features, labels, mode):
     # indices = [tf.cast(labels, tf.int32), tf.cast(labels, tf.int32), tf.cast(labels, tf.int32)]
     labels = tf.slice(labels, begin=[0, ], size=[1, ])
     onehot_labels = tf.one_hot(indices=labels, depth=10)
-    logits = tf.slice(logits, begin=[0, 0], size=[1, 10])
     loss = tf.losses.softmax_cross_entropy(onehot_labels=onehot_labels, logits=logits)
 
     # Configure the Training Op (for TRAIN mode)
@@ -171,7 +154,7 @@ def main(unused_argv):
     train_data, train_labels = read_tfrecords(train_tfrecord, is_train=True)
     eval_data, eval_labels = read_tfrecords(eval_tfrecord, is_train=False)
     # Create the estimator
-    mnist_classifier = tf.estimator.Estimator(
+    cnn_classifier = tf.estimator.Estimator(
         model_fn=cnn_model_fn, model_dir="./model-3ch/"
     )
 
@@ -188,7 +171,7 @@ def main(unused_argv):
         num_epochs=None,
         shuffle=True
     )
-    mnist_classifier.train(
+    cnn_classifier.train(
         input_fn=train_input_fn,
         steps=steps,
         hooks=[logging_hook]
@@ -201,7 +184,7 @@ def main(unused_argv):
         num_epochs=1,
         shuffle=False
     )
-    eval_results = mnist_classifier.evaluate(input_fn=eval_input_fn)
+    eval_results = cnn_classifier.evaluate(input_fn=eval_input_fn)
     print(eval_results)
 
 
