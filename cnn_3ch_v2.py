@@ -182,7 +182,7 @@ def main(unused_argv):
     train_tfrecord = './dataset-128/train_3ch.tfrecords'
     eval_tfrecord = './dataset-128/eval_3ch.tfrecords'
     eval_data, eval_labels = read_tfrecords_v2(eval_tfrecord, num_of_images=3000)  # should be 3000
-    train_data, train_labels = read_tfrecords_v2(train_tfrecord, num_of_images=17280)  # should be 17280
+    train_data, train_labels = read_tfrecords_v2(train_tfrecord, num_of_images=14280)  # should be 17280
 
     # Create the estimator
     cnn_classifier = tf.estimator.Estimator(
