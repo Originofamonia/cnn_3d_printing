@@ -11,6 +11,7 @@ import tensorflow as tf
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
+
 # our application logic will be added here
 def cnn_model_fn(features, labels, mode):
     """Model function for CNN."""
@@ -88,7 +89,7 @@ def main(unused_argv):
 
     # Create the estimator
     mnist_classifier = tf.estimator.Estimator(
-        model_fn=cnn_model_fn, model_dir="./"
+        model_fn=cnn_model_fn, model_dir="./model/"
     )
 
     # Set up logging for predictions
@@ -119,6 +120,7 @@ def main(unused_argv):
     )
     eval_results = mnist_classifier.evaluate(input_fn=eval_input_fn)
     print(eval_results)
+
 
 if __name__ == "__main__":
     tf.app.run()
